@@ -60,6 +60,8 @@ static const char *get_host_os(void) {
     return "macos";
 #elif defined(__linux__)
     return "linux";
+#elif defined(__FreeBSD__)
+    return "freebsd";
 #else
 #error TODO implement get_host_os in this build script for this target
 #endif
@@ -173,6 +175,8 @@ int main(int argc, char **argv) {
             "-Istage1",
 #if defined(__APPLE__)
             "-Wl,-stack_size,0x10000000",
+#elif defined(__FreeBSD__)
+            "-Wl,-z,stack-size=0x10000000",
 #else
             "-Wl,-z,stack-size=0x10000000",
 #endif
