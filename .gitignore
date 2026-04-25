@@ -16,3 +16,18 @@ zig-out/
 /build/
 /build-*/
 /docgen_tmp/
+
+# Large generated C files (GitHub 100MB limit)
+zig1.c
+zig2.c
+compiler_rt.c
+
+# Build artifacts
+bootstrap
+bootstrap.core
+zig
+zig-wasm2c
+zig1
+zig2
+zig2.core
+*.core
