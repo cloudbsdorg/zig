@@ -959,6 +959,8 @@ pub const Attribute = union(Kind) {
     readnone,
     readonly,
     writeonly,
+    writable,
+    dead_on_unwind,
 
     // Function Attributes
     //alignstack: Alignment,
@@ -1071,6 +1073,8 @@ pub const Attribute = union(Kind) {
                 .readnone,
                 .readonly,
                 .writeonly,
+                .writable,
+                .dead_on_unwind,
                 //.alignstack,
                 .allockind,
                 .allocsize,
@@ -1184,6 +1188,8 @@ pub const Attribute = union(Kind) {
                 .readnone,
                 .readonly,
                 .writeonly,
+                .writable,
+                .dead_on_unwind,
                 .alwaysinline,
                 .builtin,
                 .cold,
@@ -1367,6 +1373,8 @@ pub const Attribute = union(Kind) {
         readnone = 20,
         readonly = 21,
         writeonly = 52,
+        writable = 89,
+        dead_on_unwind = 91,
 
         // Function Attributes
         //alignstack,
@@ -4277,6 +4285,9 @@ pub const Function = struct {
             @"tail call",
             @"tail call fast",
             trunc,
+            @"trunc nsw",
+            @"trunc nuw",
+            @"trunc nuw nsw",
             udiv,
             @"udiv exact",
             urem,
@@ -4285,6 +4296,7 @@ pub const Function = struct {
             va_arg,
             xor,
             zext,
+            @"zext nneg",
 
             pub fn toBinaryOpcode(self: Tag) BinaryOpcode {
                 return switch (self) {
@@ -4342,8 +4354,14 @@ pub const Function = struct {
 
             pub fn toCastOpcode(self: Tag) CastOpcode {
                 return switch (self) {
-                    .trunc => .trunc,
-                    .zext => .zext,
+                    .trunc,
+                    .@"trunc nsw",
+                    .@"trunc nuw",
+                    .@"trunc nuw nsw",
+                    => .trunc,
+                    .zext,
+                    .@"zext nneg",
+                    => .zext,
                     .sext => .sext,
                     .fptoui => .fptoui,
                     .fptosi => .fptosi,
@@ -4535,8 +4553,12 @@ pub const Function = struct {
                     .sext,
                     .sitofp,
                     .trunc,
+                    .@"trunc nsw",
+                    .@"trunc nuw",
+                    .@"trunc nuw nsw",
                     .uitofp,
                     .zext,
+                    .@"zext nneg",
                     => wip.extraData(Cast, instruction.data).type,
                     .alloca,
                     .@"alloca inalloca",
@@ -4721,8 +4743,12 @@ pub const Function = struct {
                     .sext,
                     .sitofp,
                     .trunc,
+                    .@"trunc nsw",
+                    .@"trunc nuw",
+                    .@"trunc nuw nsw",
                     .uitofp,
                     .zext,
+                    .@"zext nneg",
                     => function.extraData(Cast, instruction.data).type,
                     .alloca,
                     .@"alloca inalloca",
@@ -5928,8 +5954,12 @@ pub const WipFunction = struct {
             .sext,
             .sitofp,
             .trunc,
+            .@"trunc nsw",
+            .@"trunc nuw",
+            .@"trunc nuw nsw",
             .uitofp,
             .zext,
+            .@"zext nneg",
             => {},
             else => unreachable,
         }
@@ -6537,8 +6567,12 @@ pub const WipFunction = struct {
                     .sext,
                     .sitofp,
                     .trunc,
+                    .@"trunc nsw",
+                    .@"trunc nuw",
+                    .@"trunc nuw nsw",
                     .uitofp,
                     .zext,
+                    .@"zext nneg",
                     => {
                         const extra = self.extraData(Instruction.Cast, instruction.data);
                         instruction.data = wip_extra.addExtra(Instruction.Cast{
@@ -9848,8 +9882,12 @@ pub fn print(self: *Builder, w: *Writer) (Writer.Error || Allocator.Error)!void 
                     .sext,
                     .sitofp,
                     .trunc,
+                    .@"trunc nsw",
+                    .@"trunc nuw",
+                    .@"trunc nuw nsw",
                     .uitofp,
                     .zext,
+                    .@"zext nneg",
                     => |tag| {
                         const extra = function.extraData(Function.Instruction.Cast, instruction.data);
                         try w.print("  %{f} = {s} {f} to {f}", .{
@@ -13466,6 +13504,8 @@ pub fn toBitcode(self: *Builder, allocator: Allocator, producer: Producer) bitco
                             .readnone,
                             .readonly,
                             .writeonly,
+                            .writable,
+                            .dead_on_unwind,
                             .alwaysinline,
                             .builtin,
                             .cold,
@@ -14888,6 +14928,25 @@ pub fn toBitcode(self: *Builder, allocator: Allocator, producer: Producer) bitco
                                 .val = adapter.getOffsetValueIndex(extra.val),
                                 .type_index = extra.type,
                                 .opcode = kind.toCastOpcode(),
+                            });
+                        },
+                        .@"trunc nsw",
+                        .@"trunc nuw",
+                        .@"trunc nuw nsw",
+                        .@"zext nneg",
+                        => |kind| {
+                            const extra = func.extraData(Function.Instruction.Cast, data);
+                            try function_block.writeAbbrev(FunctionBlock.CastFlags{
+                                .val = adapter.getOffsetValueIndex(extra.val),
+                                .type_index = extra.type,
+                                .opcode = kind.toCastOpcode(),
+                                .flags = switch (kind) {
+                                    .@"trunc nuw" => .{ .bit0 = true, .bit1 = false },
+                                    .@"trunc nsw" => .{ .bit0 = false, .bit1 = true },
+                                    .@"trunc nuw nsw" => .{ .bit0 = true, .bit1 = true },
+                                    .@"zext nneg" => .{ .bit0 = true, .bit1 = false },
+                                    else => unreachable,
+                                },
                             });
                         },
                         .@"fcmp false",

@@ -5,6 +5,7 @@ on:
     branches:
       - 014-dev
       - upgrade-0.15.2
+      - upgrade-0.15.2-fast
 concurrency:
   group: ${{ github.head_ref || github.run_id }}-${{ github.actor }}
   cancel-in-progress: true
@@ -142,6 +143,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         id: release
         with:
+          name: "${{ github.ref_name }} @ ${{ github.sha }}"
           generate_release_notes: true
           tag_name: "autobuild-${{github.sha}}"
           files: |
